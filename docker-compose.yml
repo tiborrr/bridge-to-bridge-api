@@ -1,0 +1,145 @@
+services:
+  keycloak-db-init:
+    image: alpine:latest
+    container_name: bridge-keycloak-db-init
+    volumes:
+      - keycloak-postgres-data:/var/lib/postgresql
+    command: >
+      sh -c "
+        chown -R 999:999 /var/lib/postgresql &&
+        chmod -R 700 /var/lib/postgresql &&
+        echo 'PostgreSQL data directory permissions set successfully'
+      "
+    networks:
+      - bridge-network
+
+  keycloak-db:
+    image: postgres:18-alpine
+    container_name: bridge-keycloak-db
+    restart: unless-stopped
+    user: "999:999"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-keycloak}
+      - POSTGRES_USER=${POSTGRES_USER:-keycloak}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-keycloak_password}
+    volumes:
+      - keycloak-postgres-data:/var/lib/postgresql
+    depends_on:
+      keycloak-db-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-keycloak} -d ${POSTGRES_DB:-keycloak}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - bridge-network
+
+  bridge-keycloak:
+    image: registry.casteleijn.com/bridge-api-keycloak:${IMAGE_TAG:-latest}
+    container_name: bridge-keycloak
+    build:
+      context: ./keycloak
+      dockerfile: Dockerfile
+      tags:
+        - "registry.casteleijn.com/bridge-api-keycloak:latest"
+    restart: unless-stopped
+    command:
+      - start
+      - --optimized
+      - --import-realm
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USERNAME:-admin}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/${POSTGRES_DB:-keycloak}
+      - KC_DB_USERNAME=${POSTGRES_USER:-keycloak}
+      - KC_DB_PASSWORD=${POSTGRES_PASSWORD:-keycloak_password}
+      - KC_HTTP_ENABLED=true
+      - KC_PROXY_HEADERS=forwarded
+      - KC_HOSTNAME_STRICT=false
+      - KC_HOSTNAME=${KEYCLOAK_PROTOCOL:-http}://${KEYCLOAK_HOSTNAME:-auth.brug-tot-brug.casteleijn.com}
+      - KC_HOSTNAME_ADMIN=${KEYCLOAK_PROTOCOL:-http}://${KEYCLOAK_ADMIN_HOSTNAME:-admin.brug-tot-brug.casteleijn.com}
+      - KEYCLOAK_APP_REALM=${KEYCLOAK_APP_REALM:-bridge-realm}
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-bridge-client}
+      - KEYCLOAK_USER_ADMIN_USERNAME=${KEYCLOAK_USER_ADMIN_USERNAME:-admin}
+      - KEYCLOAK_USER_ADMIN_PASSWORD=${KEYCLOAK_USER_ADMIN_PASSWORD:-admin}
+      - APP_HOSTNAME=${APP_HOSTNAME:-localhost}
+    volumes:
+      - ./keycloak/realm-config/${KEYCLOAK_REALM_IMPORT_FILE:-bridge-realm-dev.json}:/opt/keycloak/data/import/realm.json
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    healthcheck:
+      test: [ 'CMD-SHELL', '[ -f /tmp/HealthCheck.java ] || echo "public class HealthCheck { public static void main(String[] args) throws java.lang.Throwable { java.net.URI uri = java.net.URI.create(args[0]); System.exit(java.net.HttpURLConnection.HTTP_OK == ((java.net.HttpURLConnection)uri.toURL().openConnection()).getResponseCode() ? 0 : 1); } }" > /tmp/HealthCheck.java && java /tmp/HealthCheck.java http://localhost:9000/health/live' ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      bridge-network:
+        aliases:
+          - ${KEYCLOAK_HOSTNAME:-auth.brug-tot-brug.casteleijn.com}
+          - ${KEYCLOAK_ADMIN_HOSTNAME:-admin.brug-tot-brug.casteleijn.com}
+      gateway-net:
+        aliases:
+          - ${KEYCLOAK_HOSTNAME:-auth.brug-tot-brug.casteleijn.com}
+          - ${KEYCLOAK_ADMIN_HOSTNAME:-admin.brug-tot-brug.casteleijn.com}
+
+  app-db:
+    image: postgres:18-alpine
+    container_name: bridge-app-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${APP_POSTGRES_DB:-bridge_app}
+      - POSTGRES_USER=${APP_POSTGRES_USER:-bridge_user}
+      - POSTGRES_PASSWORD=${APP_POSTGRES_PASSWORD:-bridge_password}
+    volumes:
+      - app-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${APP_POSTGRES_USER:-bridge_user} -d ${APP_POSTGRES_DB:-bridge_app}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - bridge-network
+
+  api:
+    image: registry.casteleijn.com/bridge-api:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      tags:
+        - "registry.casteleijn.com/bridge-api:latest"
+    container_name: bridge-api
+    restart: unless-stopped
+    environment:
+      - APP_POSTGRES_DB=${APP_POSTGRES_DB:-bridge_app}
+      - APP_POSTGRES_USER=${APP_POSTGRES_USER:-bridge_user}
+      - APP_POSTGRES_PASSWORD=${APP_POSTGRES_PASSWORD:-bridge_password}
+      - APP_POSTGRES_HOST=app-db
+      - APP_POSTGRES_PORT=5432
+      - KEYCLOAK_SERVER_URL=http://bridge-keycloak:8080
+      - KEYCLOAK_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USERNAME:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      - IMAGE_TAG=${IMAGE_TAG:-latest}
+    depends_on:
+      app-db:
+        condition: service_healthy
+    networks:
+      bridge-network:
+        aliases:
+          - ${APP_HOSTNAME:-brug-tot-brug.casteleijn.com}
+      gateway-net:
+        aliases:
+          - ${APP_HOSTNAME:-brug-tot-brug.casteleijn.com}
+
+networks:
+  bridge-network:
+  gateway-net:
+    external: true
+
+volumes:
+  keycloak-postgres-data:
+  app-postgres-data:
