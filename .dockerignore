@@ -14,5 +14,4 @@
 .github
 tests
 keycloak
-deploy.sh
 docker-compose*.yml

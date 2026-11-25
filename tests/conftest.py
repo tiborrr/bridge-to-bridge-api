@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -63,14 +65,22 @@ def db_session(setup_database):
     finally:
         db.close()
 
+@asynccontextmanager
+async def _no_migrations(_app):
+    # The app's lifespan runs Alembic against the configured (Postgres) database;
+    # tests use the in-memory SQLite schema created by setup_database instead.
+    yield
+
+
 @pytest.fixture
-def client(db_session):
+def client(db_session, monkeypatch):
     def override_get_db():
         try:
             yield db_session
         finally:
             pass
 
+    monkeypatch.setattr(app.router, "lifespan_context", _no_migrations)
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as test_client:
         yield test_client

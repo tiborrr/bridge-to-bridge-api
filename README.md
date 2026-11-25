@@ -1,4 +1,30 @@
 # bridge-to-bridge-api
+
+## Deploying
+
+Merging to `main` deploys. `.github/workflows/ci.yml` runs the tests, builds the API and
+Keycloak images, pushes them to the private registry on Omarchy tagged with the commit SHA,
+and runs `/usr/local/bin/deploy-app brug-tot-brug <sha>` over SSH (a forced-command key that
+can do nothing else). That script recreates `api` and `bridge-keycloak`, waits until the stack
+is healthy, rolls back to the previous tag when it is not, and records the deployed tag in
+`~/deployments/brug-tot-brug/.deployed_image_tag`. Keycloak restarts on every deploy (about a
+minute without logins). A failed deploy opens a `deploy-failure` issue.
+
+The CI secrets live in the repository's `production` environment: `TS_OAUTH_CLIENT_ID`,
+`TS_OAUTH_SECRET`, `REGISTRY_HOST`, `REGISTRY_USERNAME`, `REGISTRY_PASSWORD`, `PROD_SSH_HOST`,
+`PROD_SSH_USER`, `PROD_SSH_KEY`, `PROD_SSH_KNOWN_HOSTS` and optionally `PROD_SSH_PORT`.
+
+CI never changes `docker-compose.yml`, `.env` or `keycloak/realm-config/` on the server. When
+one of those changes, copy it by hand and restart with the deployed tag:
+
+```sh
+cd ~/deployments/brug-tot-brug
+cp <checkout>/docker-compose.yml . && cp -r <checkout>/keycloak/realm-config .
+IMAGE_TAG="$(cat .deployed_image_tag)" docker compose up -d
+```
+
+Always pass `IMAGE_TAG` like this for manual `docker compose` commands; `.env` does not
+pin it, so without it compose falls back to `latest`.
 ## Keycloak hostnames
 
 Keycloak uses hostname v2:

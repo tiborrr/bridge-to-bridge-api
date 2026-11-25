@@ -1,0 +1,201 @@
+name: CI & Deploy
+
+# Tests every pull request and push. A push to main also builds both images,
+# pushes them to the private registry on Omarchy (tagged with the commit SHA)
+# and rolls them out with /usr/local/bin/deploy-app, which restarts them and
+# rolls back when the containers do not become healthy.
+#
+# Vulnerability scanning is not a gate here: sbom-vuln-watch.yml scans every
+# image built from main and reports new fixable findings. A blocking scan would
+# also hold back unrelated fixes while an upstream Keycloak CVE has no release.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never run two deploys at once; a newer push waits for the running one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          enable-cache: true
+
+      # Same Python as the runtime image (see Dockerfile).
+      - name: Install dependencies
+        run: uv sync --locked --python 3.12
+
+      - name: Run tests
+        run: uv run --locked pytest -q
+
+  publish:
+    name: Push images to registry
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    # Registry and deploy secrets live in this environment, which only main may
+    # use, so pull-request runs and other branches can never read them.
+    environment: production
+    timeout-minutes: 30
+    steps:
+      # The registry and the deploy target live on Omarchy, reachable only over
+      # Tailscale. Joins as an ephemeral tag:ci node; the tailnet policy lets
+      # tag:ci reach omarchy on tcp/22 and tcp/443 only.
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: omarchy.tail0118fa.ts.net
+
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Make the registry's tailnet name resolvable for BuildKit
+        # BuildKit runs in its own container and uses the runner's upstream DNS,
+        # which does not know Tailscale MagicDNS names: pin the name in /etc/hosts
+        # and give BuildKit the host network (which copies /etc/hosts).
+        env:
+          REGISTRY_HOST: ${{ secrets.REGISTRY_HOST }}
+        run: |
+          ip="$(getent ahostsv4 "$REGISTRY_HOST" | awk 'NR==1 {print $1}')"
+          test -n "$ip"
+          echo "$ip $REGISTRY_HOST" | sudo tee -a /etc/hosts
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          driver-opts: network=host
+
+      - name: Log in to private registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ secrets.REGISTRY_HOST }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      # Same build cache scopes as sbom-vuln-watch.yml, so both build the same layers.
+      - name: Build and push API image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.REGISTRY_HOST }}/bridge-api:${{ github.sha }}
+            ${{ secrets.REGISTRY_HOST }}/bridge-api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build and push Keycloak image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ./keycloak
+          push: true
+          tags: |
+            ${{ secrets.REGISTRY_HOST }}/bridge-api-keycloak:${{ github.sha }}
+            ${{ secrets.REGISTRY_HOST }}/bridge-api-keycloak:latest
+          cache-from: type=gha,scope=keycloak
+          cache-to: type=gha,mode=max,scope=keycloak
+
+  # The deploy key is pinned on the server to `/usr/local/bin/deploy-app
+  # brug-tot-brug` (SSH forced command): it can only roll out a commit SHA of
+  # this app, never open a shell. The script pulls and recreates api and
+  # bridge-keycloak (the services tagged ${IMAGE_TAG}), starts missing
+  # dependencies without touching running ones, and rolls back when the
+  # containers do not become healthy. docker-compose.yml, .env and the realm
+  # files on the server are managed by hand (see README.md).
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    needs: publish
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: omarchy.tail0118fa.ts.net
+
+      - name: Configure SSH key and pinned host key
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$SSH_KEY" ] || [ -z "$KNOWN_HOSTS" ]; then
+            echo "::error::PROD_SSH_KEY or PROD_SSH_KNOWN_HOSTS is not set in the production environment."
+            exit 1
+          fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_deploy ~/.ssh/known_hosts
+
+      - name: Pull images and restart (rolls back when unhealthy)
+        env:
+          SSH_TARGET: ${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}
+          SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" -o StrictHostKeyChecking=yes \
+            -o IdentitiesOnly=yes "$SSH_TARGET" "$GITHUB_SHA"
+
+  # A red step on main skips the deploy without any visible signal. Open (or
+  # update) one GitHub issue when that happens and close it once a deploy works.
+  deploy-status:
+    name: Report deploy status
+    runs-on: ubuntu-latest
+    needs: [test, publish, deploy]
+    if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    permissions:
+      issues: write
+    steps:
+      - name: Open, update or close the deploy-failure issue
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+        with:
+          script: |
+            const title = 'Deploy to production failed';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const sha = context.sha.slice(0, 7);
+            const { data: open } = await github.rest.issues.listForRepo({
+              ...context.repo, state: 'open', labels: 'deploy-failure', per_page: 10,
+            });
+            if (process.env.DEPLOY_RESULT === 'success') {
+              for (const issue of open) {
+                await github.rest.issues.createComment({ ...context.repo, issue_number: issue.number,
+                  body: `Deploy of ${sha} succeeded: ${runUrl}` });
+                await github.rest.issues.update({ ...context.repo, issue_number: issue.number,
+                  state: 'closed', state_reason: 'completed' });
+              }
+              return;
+            }
+            if (process.env.DEPLOY_RESULT === 'cancelled') return;
+            const body = `Commit ${sha} is on main but was not deployed ` +
+              `(deploy: ${process.env.DEPLOY_RESULT}). Production still runs the previous version.\n\nRun: ${runUrl}`;
+            if (open.length > 0) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: open[0].number, body });
+            } else {
+              await github.rest.issues.create({ ...context.repo, title, body,
+                labels: ['deploy-failure'], assignees: [context.repo.owner] });
+            }
