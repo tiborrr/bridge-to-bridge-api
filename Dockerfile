@@ -11,8 +11,13 @@ ENV UV_PYTHON_INSTALL_DIR=/python
 # Only use the managed Python version
 ENV UV_PYTHON_PREFERENCE=only-managed
 
-# Install Python before the project for caching
-RUN uv python install 3.12
+# Install Python before the project for caching.
+# Drop the bundled pip: the app runs from a uv-built venv and never needs it,
+# and pip's vendored setuptools (pkg_resources) trips scanners (CVE-2025-47273).
+RUN uv python install 3.12 \
+ && rm -rf /python/cpython-*/lib/python3.*/site-packages/pip \
+           /python/cpython-*/lib/python3.*/site-packages/pip-*.dist-info \
+           /python/cpython-*/bin/pip*
 
 WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
