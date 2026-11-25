@@ -59,12 +59,18 @@ services:
       - KC_HTTP_ENABLED=true
       - KC_PROXY_HEADERS=forwarded
       - KC_HOSTNAME=${KEYCLOAK_PROTOCOL:-http}://${KEYCLOAK_HOSTNAME:-auth.brug-tot-brug.casteleijn.com}
-      - KC_HOSTNAME_ADMIN=${KEYCLOAK_PROTOCOL:-http}://${KEYCLOAK_ADMIN_HOSTNAME:-admin.brug-tot-brug.casteleijn.com}
+      # KEYCLOAK_ADMIN_URL (full URL, may include a port) overrides the protocol + admin hostname,
+      # e.g. a tailnet-only address served by `tailscale serve`.
+      - KC_HOSTNAME_ADMIN=${KEYCLOAK_ADMIN_URL:-${KEYCLOAK_PROTOCOL:-http}://${KEYCLOAK_ADMIN_HOSTNAME:-admin.brug-tot-brug.casteleijn.com}}
       - KEYCLOAK_APP_REALM=${KEYCLOAK_APP_REALM:-bridge-realm}
       - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-bridge-client}
+      - KEYCLOAK_API_ADMIN_CLIENT_SECRET=${KEYCLOAK_API_ADMIN_CLIENT_SECRET:-change-me-api-admin-secret}
       - KEYCLOAK_USER_ADMIN_USERNAME=${KEYCLOAK_USER_ADMIN_USERNAME:-admin}
       - KEYCLOAK_USER_ADMIN_PASSWORD=${KEYCLOAK_USER_ADMIN_PASSWORD:-admin}
       - APP_HOSTNAME=${APP_HOSTNAME:-localhost}
+    # Localhost only: lets `tailscale serve` publish the admin console on the tailnet.
+    ports:
+      - "127.0.0.1:${KEYCLOAK_ADMIN_LOCAL_PORT:-8180}:8080"
     volumes:
       - ./keycloak/realm-config/${KEYCLOAK_REALM_IMPORT_FILE:-bridge-realm-dev.json}:/opt/keycloak/data/import/realm.json
     depends_on:
@@ -120,8 +126,8 @@ services:
       - APP_POSTGRES_HOST=app-db
       - APP_POSTGRES_PORT=5432
       - KEYCLOAK_SERVER_URL=http://bridge-keycloak:8080
-      - KEYCLOAK_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USERNAME:-admin}
-      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # Service account of the bridge-api-admin client in the app realm (not the master admin).
+      - KEYCLOAK_ADMIN_CLIENT_SECRET=${KEYCLOAK_API_ADMIN_CLIENT_SECRET:-change-me-api-admin-secret}
       - IMAGE_TAG=${IMAGE_TAG:-latest}
     depends_on:
       app-db:

@@ -1,10 +1,10 @@
 {
-  "id": "${env.KEYCLOAK_APP_REALM:bridge-realm}",
-  "realm": "${env.KEYCLOAK_APP_REALM:bridge-realm}",
+  "id": "${KEYCLOAK_APP_REALM:bridge-realm}",
+  "realm": "${KEYCLOAK_APP_REALM:bridge-realm}",
   "enabled": true,
   "clients": [
     {
-      "clientId": "${env.KEYCLOAK_CLIENT_ID:bridge-client}",
+      "clientId": "${KEYCLOAK_CLIENT_ID:bridge-client}",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,
@@ -20,11 +20,35 @@
       "directAccessGrantsEnabled": true,
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false
+    },
+    {
+      "clientId": "bridge-api-admin",
+      "name": "Bridge API (invites users)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "${KEYCLOAK_API_ADMIN_CLIENT_SECRET:change-me-api-admin-secret}",
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [
+        "service_account",
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "basic",
+        "email",
+        "kc-admin-api"
+      ]
     }
   ],
   "users": [
     {
-      "username": "${env.KEYCLOAK_USER_ADMIN_USERNAME:admin}",
+      "username": "${KEYCLOAK_USER_ADMIN_USERNAME:admin}",
       "email": "admin@example.com",
       "emailVerified": true,
       "enabled": true,
@@ -33,10 +57,32 @@
       "credentials": [
         {
           "type": "password",
-          "value": "${env.KEYCLOAK_USER_ADMIN_PASSWORD:admin}",
+          "value": "${KEYCLOAK_USER_ADMIN_PASSWORD:admin}",
           "temporary": false
         }
       ]
+    },
+    {
+      "username": "service-account-bridge-api-admin",
+      "enabled": true,
+      "serviceAccountClientId": "bridge-api-admin",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users"
+        ]
+      }
     }
-  ]
+  ],
+  "clientScopeMappings": {
+    "realm-management": [
+      {
+        "client": "bridge-api-admin",
+        "roles": [
+          "manage-users",
+          "view-users"
+        ]
+      }
+    ]
+  }
 }
