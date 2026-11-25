@@ -31,7 +31,18 @@
       "standardFlowEnabled": false,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
-      "secret": "${env.KEYCLOAK_API_ADMIN_CLIENT_SECRET:change-me-api-admin-secret}"
+      "secret": "${env.KEYCLOAK_API_ADMIN_CLIENT_SECRET:change-me-api-admin-secret}",
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [
+        "service_account",
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "basic",
+        "email",
+        "kc-admin-api"
+      ]
     }
   ],
   "users": [
@@ -61,5 +72,16 @@
         ]
       }
     }
-  ]
+  ],
+  "clientScopeMappings": {
+    "realm-management": [
+      {
+        "client": "bridge-api-admin",
+        "roles": [
+          "manage-users",
+          "view-users"
+        ]
+      }
+    ]
+  }
 }

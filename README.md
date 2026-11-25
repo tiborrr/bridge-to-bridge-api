@@ -44,7 +44,9 @@ admin login page and its tokens also stay on the tailnet. Open the console at
 ### The API's Keycloak access
 
 The API invites users with the service account of the `bridge-api-admin` client in the app
-realm (client credentials, roles `realm-management/manage-users` and `view-users`), set by
+realm (client credentials, roles `realm-management/manage-users` and `view-users`, full scope off,
+plus the built-in `kc-admin-api` client scope: Keycloak 26.8 rejects admin API tokens without
+the admin API audience it adds), set by
 `KEYCLOAK_API_ADMIN_CLIENT_SECRET`. It does not hold the master admin password. It reaches
 Keycloak over the internal network (`http://bridge-keycloak:8080`), so the proxy rules
 above do not affect it.
