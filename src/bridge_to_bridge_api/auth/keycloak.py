@@ -8,17 +8,34 @@ import logging
 logger = logging.getLogger(__name__)
 
 def get_keycloak_admin() -> KeycloakAdmin:
+    """Admin client for the app realm.
+
+    In production the API authenticates as the service account of the
+    KEYCLOAK_ADMIN_CLIENT_ID client in the app realm, which only holds the
+    realm-management roles it needs (manage-users, view-users). The master
+    admin login is only a fallback for local development, when no client
+    secret is configured.
+    """
     settings = get_settings()
-    admin = KeycloakAdmin(
+    if settings.KEYCLOAK_ADMIN_CLIENT_SECRET:
+        return KeycloakAdmin(
+            server_url=settings.KEYCLOAK_SERVER_URL,
+            realm_name=settings.KEYCLOAK_REALM,
+            client_id=settings.KEYCLOAK_ADMIN_CLIENT_ID,
+            client_secret_key=settings.KEYCLOAK_ADMIN_CLIENT_SECRET,
+            verify=True,
+        )
+    # Log in to master, but manage the app realm. (Assigning admin.realm_name
+    # afterwards has no effect in python-keycloak 7, so users were created in master.)
+    return KeycloakAdmin(
         server_url=settings.KEYCLOAK_SERVER_URL,
+        realm_name=settings.KEYCLOAK_REALM,
+        user_realm_name="master",
         client_id="admin-cli",
-        realm_name="master",
         username=settings.KEYCLOAK_ADMIN_USERNAME,
         password=settings.KEYCLOAK_ADMIN_PASSWORD,
-        verify=True
+        verify=True,
     )
-    admin.realm_name = settings.KEYCLOAK_REALM
-    return admin
 
 def get_keycloak_openid() -> KeycloakOpenID:
     settings = get_settings()

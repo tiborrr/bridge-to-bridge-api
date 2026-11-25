@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     KEYCLOAK_REALM: str = "bridge-realm"
     KEYCLOAK_CLIENT_ID: str = "bridge-client"
     KEYCLOAK_CLIENT_SECRET: str = "vqJONtmUeFfVlmajAQfxdTY8dejKO2Mq"
+    # Service account (client credentials) in KEYCLOAK_REALM used to invite users.
+    KEYCLOAK_ADMIN_CLIENT_ID: str = "bridge-api-admin"
+    KEYCLOAK_ADMIN_CLIENT_SECRET: str = ""
+    # Local development fallback only: master admin login, used when no client secret is set.
     KEYCLOAK_ADMIN_USERNAME: str = "admin"
     KEYCLOAK_ADMIN_PASSWORD: str = "admin"
 
