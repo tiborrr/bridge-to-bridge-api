@@ -1,0 +1,41 @@
+{
+  "id": "${env.KEYCLOAK_APP_REALM:bridge-realm}",
+  "realm": "${env.KEYCLOAK_APP_REALM:bridge-realm}",
+  "enabled": true,
+  "clients": [
+    {
+      "clientId": "${env.KEYCLOAK_CLIENT_ID:bridge-client}",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "redirectUris": [
+        "https://${env.APP_HOSTNAME}/*",
+        "bridgeapp://login-callback",
+        "bridgeapp://*"
+      ],
+      "webOrigins": [
+        "https://${env.APP_HOSTNAME}"
+      ],
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false
+    }
+  ],
+  "users": [
+    {
+      "username": "${env.KEYCLOAK_USER_ADMIN_USERNAME:admin}",
+      "email": "admin@example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Admin",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${env.KEYCLOAK_USER_ADMIN_PASSWORD:admin}",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
