@@ -58,7 +58,6 @@ services:
       - KC_DB_PASSWORD=${POSTGRES_PASSWORD:-keycloak_password}
       - KC_HTTP_ENABLED=true
       - KC_PROXY_HEADERS=forwarded
-      - KC_HOSTNAME_STRICT=false
       - KC_HOSTNAME=${KEYCLOAK_PROTOCOL:-http}://${KEYCLOAK_HOSTNAME:-auth.brug-tot-brug.casteleijn.com}
       - KC_HOSTNAME_ADMIN=${KEYCLOAK_PROTOCOL:-http}://${KEYCLOAK_ADMIN_HOSTNAME:-admin.brug-tot-brug.casteleijn.com}
       - KEYCLOAK_APP_REALM=${KEYCLOAK_APP_REALM:-bridge-realm}
