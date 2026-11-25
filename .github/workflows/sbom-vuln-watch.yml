@@ -10,8 +10,8 @@ name: SBOM & Vulnerability Watch
 # the T3_VULN_WEBHOOK_URL secret, which opens a thread that patches them. The same
 # set is posted once (remembered through the Actions cache, which forgets entries
 # unused for 7 days, so an unresolved set is re-sent about weekly). Findings
-# accepted in .trivyignore are left out. This repo has no CI or deploy pipeline
-# yet; the deployed images are also scanned as they run on the host (t3-osv-watch).
+# accepted in .trivyignore are left out. ci.yml builds, pushes and deploys the
+# same images; the deployed images are also scanned as they run on the host (t3-osv-watch).
 #
 # Each push also submits the image's packages to GitHub's dependency graph, so a
 # new GitHub advisory for a package inside the image raises a Dependabot alert
