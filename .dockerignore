@@ -1,0 +1,19 @@
+# Keep secrets, VCS data and local artifacts out of the build context: the
+# Dockerfile copies the whole context into the image (COPY . /app).
+.env
+.env.*
+!.env-example
+.git
+.gitignore
+.dockerignore
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.cursorignore
+.github
+tests
+keycloak
+deploy.sh
+docker-compose*.yml
+README.md
