@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Deploy script for bridge-to-bridge-api
-# This script builds the Docker images locally, pushes them to the registry, and syncs config to BRUG_TOT_BRUG
+# Builds the Docker images, pushes them to the registry and deploys them on the production
+# server, which is this machine (omarchy): the compose project lives in DEPLOY_PATH.
 
 set -e  # Exit on any error
 
@@ -20,8 +21,7 @@ print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 # Configuration
 export IMAGE_TAG="v$(date +%Y%m%d%H%M%S)"
 export DOCKER_DEFAULT_PLATFORM=linux/amd64
-REMOTE_HOST="BRUG_TOT_BRUG"
-REMOTE_PATH="/root/deployments/brug-tot-brug"
+DEPLOY_PATH="${DEPLOY_PATH:-$HOME/deployments/brug-tot-brug}"
 
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
@@ -29,7 +29,7 @@ check_dependencies() {
     print_status "Checking dependencies..."
     if ! command_exists docker; then print_error "Docker is not installed or not in PATH"; exit 1; fi
     if ! command_exists rsync; then print_error "rsync is not installed or not in PATH"; exit 1; fi
-    if ! command_exists ssh; then print_error "ssh is not installed or not in PATH"; exit 1; fi
+    if [ ! -f "${DEPLOY_PATH}/.env" ]; then print_error "${DEPLOY_PATH}/.env not found; is this the production server?"; exit 1; fi
     print_success "All dependencies are available"
 }
 
@@ -45,35 +45,25 @@ push_images() {
     print_success "Docker images pushed successfully"
 }
 
-sync_to_remote() {
-    print_status "Syncing configuration to ${REMOTE_HOST}:${REMOTE_PATH}"
-    if ! ssh -o ConnectTimeout=10 "${REMOTE_HOST}" "echo 'SSH connection successful'" >/dev/null 2>&1; then
-        print_error "Cannot connect to ${REMOTE_HOST}. Please check your SSH configuration."
-        exit 1
+sync_config() {
+    print_status "Syncing configuration to ${DEPLOY_PATH}"
+    # The production .env holds the secrets and is never overwritten; only IMAGE_TAG is updated,
+    # so a plain `docker compose` in DEPLOY_PATH keeps using the deployed images.
+    rsync -aR "docker-compose.yml" "keycloak/realm-config" "${DEPLOY_PATH}/"
+    if grep -q '^IMAGE_TAG=' "${DEPLOY_PATH}/.env"; then
+        sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" "${DEPLOY_PATH}/.env"
+    else
+        echo "IMAGE_TAG=${IMAGE_TAG}" >> "${DEPLOY_PATH}/.env"
     fi
-    ssh "${REMOTE_HOST}" "mkdir -p ${REMOTE_PATH}"
-    
-    FILES_TO_SYNC=("docker-compose.yml" "keycloak/realm-config")
-    if [ -f .env ]; then
-        FILES_TO_SYNC+=(".env")
-        print_status "Found .env file, adding to sync list"
-    fi
-    
-    rsync -avzR --progress "${FILES_TO_SYNC[@]}" "${REMOTE_HOST}:${REMOTE_PATH}"
-    print_success "Successfully synced configuration to ${REMOTE_HOST}:${REMOTE_PATH}"
+    print_success "Configuration synced; IMAGE_TAG=${IMAGE_TAG} in ${DEPLOY_PATH}/.env"
 }
 
-deploy_on_remote() {
-    print_status "Deploying on remote server ${REMOTE_HOST}..."
-    print_status "Pulling images and starting application with docker compose..."
-    ssh "${REMOTE_HOST}" "cd ${REMOTE_PATH} && export IMAGE_TAG=\"${IMAGE_TAG}\" && docker compose pull -q && docker compose up -d"
-    
-    print_status "Checking running containers..."
-    ssh "${REMOTE_HOST}" "cd ${REMOTE_PATH} && docker compose ps"
-    
+deploy() {
+    print_status "Recreating api and bridge-keycloak with ${IMAGE_TAG}..."
+    (cd "${DEPLOY_PATH}" && docker compose up -d --no-deps bridge-keycloak api && docker compose ps)
     print_status "Cleaning up dangling images..."
-    ssh "${REMOTE_HOST}" "docker image prune -f"
-    print_success "Deployment completed on remote server!"
+    docker image prune -f
+    print_success "Deployment completed!"
 }
 
 cleanup_registry() {
@@ -157,7 +147,7 @@ show_usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  --no-deploy      Skip automatic deployment (sync only)"
+    echo "  --no-deploy      Build, push and sync config, but do not recreate containers"
     echo "  --help          Show this help message"
 }
 
@@ -174,20 +164,18 @@ done
 main() {
     print_status "Starting deployment process..."
     print_status "Target Tag: ${IMAGE_TAG}"
-    print_status "Remote: ${REMOTE_HOST}:${REMOTE_PATH}"
+    print_status "Deploy path: ${DEPLOY_PATH}"
     
     check_dependencies
     build_images
     push_images
-    sync_to_remote
-    
+    sync_config
+
     if [ "$SKIP_DEPLOY" = false ]; then
-        deploy_on_remote
+        deploy
     else
-        print_status "Manual deployment required. Run the following on ${REMOTE_HOST}:"
-        print_status "  1. SSH to ${REMOTE_HOST}"
-        print_status "  2. cd ${REMOTE_PATH}"
-        print_status "  3. export IMAGE_TAG=\"${IMAGE_TAG}\" && docker compose pull && docker compose up -d"
+        print_status "Manual deployment required:"
+        print_status "  cd ${DEPLOY_PATH} && docker compose up -d --no-deps bridge-keycloak api"
     fi
     
     cleanup_registry
