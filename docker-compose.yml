@@ -37,13 +37,13 @@ services:
       - bridge-network
 
   bridge-keycloak:
-    image: registry.casteleijn.com/bridge-api-keycloak:${IMAGE_TAG:-latest}
+    image: omarchy.tail0118fa.ts.net/bridge-api-keycloak:${IMAGE_TAG:-latest}
     container_name: bridge-keycloak
     build:
       context: ./keycloak
       dockerfile: Dockerfile
       tags:
-        - "registry.casteleijn.com/bridge-api-keycloak:latest"
+        - "omarchy.tail0118fa.ts.net/bridge-api-keycloak:latest"
     restart: unless-stopped
     command:
       - start
@@ -107,11 +107,11 @@ services:
       - bridge-network
 
   api:
-    image: registry.casteleijn.com/bridge-api:${IMAGE_TAG:-latest}
+    image: omarchy.tail0118fa.ts.net/bridge-api:${IMAGE_TAG:-latest}
     build:
       context: .
       tags:
-        - "registry.casteleijn.com/bridge-api:latest"
+        - "omarchy.tail0118fa.ts.net/bridge-api:latest"
     container_name: bridge-api
     restart: unless-stopped
     environment:
