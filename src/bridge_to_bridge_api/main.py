@@ -1,9 +1,18 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from bridge_to_bridge_api.api.routes import dashboard, leaderboard, history, trajectories, team, users, teams
-from bridge_to_bridge_api.core.database import get_engine, Base
-from bridge_to_bridge_api.core.logging import setup_logging
+
+from bridge_to_bridge_api.api.routes import (
+    dashboard,
+    history,
+    leaderboard,
+    team,
+    teams,
+    trajectories,
+    users,
+)
+from bridge_to_bridge_api.core.config import get_settings
 from bridge_to_bridge_api.core.lifespan import lifespan
+from bridge_to_bridge_api.core.logging import setup_logging
 
 setup_logging()
 
@@ -16,8 +25,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-from bridge_to_bridge_api.core.config import get_settings
-
 settings = get_settings()
 
 # Configure CORS
@@ -29,24 +36,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
 
+
 @app.get("/version")
 async def get_version():
     import os
+
     return {
         "version": app.version,
         "build_tag": os.getenv("IMAGE_TAG", "unknown"),
-        "environment": os.getenv("ENVIRONMENT", "production")
+        "environment": os.getenv("ENVIRONMENT", "production"),
     }
 
 
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
-app.include_router(leaderboard.router, prefix="/api/v1/leaderboard", tags=["leaderboard"])
+app.include_router(
+    leaderboard.router, prefix="/api/v1/leaderboard", tags=["leaderboard"]
+)
 app.include_router(history.router, prefix="/api/v1/history", tags=["history"])
-app.include_router(trajectories.router, prefix="/api/v1/trajectories", tags=["trajectories"])
+app.include_router(
+    trajectories.router, prefix="/api/v1/trajectories", tags=["trajectories"]
+)
 app.include_router(team.router, prefix="/ws/team", tags=["team_ws"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(teams.router, prefix="/api/v1/teams", tags=["teams"])
@@ -54,7 +68,9 @@ app.include_router(teams.router, prefix="/api/v1/teams", tags=["teams"])
 
 def main():
     import uvicorn
+
     uvicorn.run("bridge_to_bridge_api.main:app", host="0.0.0.0", port=3000, reload=True)
+
 
 if __name__ == "__main__":
     main()

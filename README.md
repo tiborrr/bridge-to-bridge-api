@@ -19,9 +19,17 @@ one of those changes, copy it by hand and restart with the deployed tag:
 
 ```sh
 cd ~/deployments/brug-tot-brug
-cp <checkout>/docker-compose.yml . && cp -r <checkout>/keycloak/realm-config .
+cp <checkout>/docker-compose.yml . && cp -r <checkout>/keycloak/realm-config keycloak/
 IMAGE_TAG="$(cat .deployed_image_tag)" docker compose up -d
 ```
+
+Production imports `bridge-realm-prod.json` (`KEYCLOAK_REALM_IMPORT_FILE`). Keycloak imports
+a realm file only when the realm does not exist yet, so a change to it does not reach the
+running realm: make the same change in the admin console as well.
+
+The server also has a `docker-compose.override.yml` that is not in this repository. It marks
+the two database volumes as external, because they were created before this compose
+project existed.
 
 Always pass `IMAGE_TAG` like this for manual `docker compose` commands; `.env` does not
 pin it, so without it compose falls back to `latest`.

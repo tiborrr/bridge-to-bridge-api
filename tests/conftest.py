@@ -5,8 +5,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from bridge_to_bridge_api.main import app
 from bridge_to_bridge_api.core.database import Base, get_db
+from bridge_to_bridge_api.main import app
 from bridge_to_bridge_api.models.trajectory import Trajectory
 
 # Use an in-memory SQLite database for testing
@@ -15,11 +15,12 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 from sqlalchemy.pool import StaticPool
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, 
+    SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool
+    poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 def seed_db(db):
     if db.query(Trajectory).count() == 0:
@@ -36,25 +37,27 @@ def seed_db(db):
             finish_north_lng=6.155700,
             finish_south_lat=52.251457,
             finish_south_lng=6.157813,
-            finish_direction_bearing=150.0
+            finish_direction_bearing=150.0,
         )
         db.add(t1)
         db.commit()
+
 
 @pytest.fixture(scope="session")
 def setup_database():
     # Create the database and tables
     Base.metadata.create_all(bind=engine)
-    
+
     # Seed the database
     db = TestingSessionLocal()
     seed_db(db)
     db.close()
-    
+
     yield
-    
+
     # Drop the database tables
     Base.metadata.drop_all(bind=engine)
+
 
 @pytest.fixture
 def db_session(setup_database):
@@ -64,6 +67,7 @@ def db_session(setup_database):
         yield db
     finally:
         db.close()
+
 
 @asynccontextmanager
 async def _no_migrations(_app):

@@ -1,18 +1,21 @@
-from pydantic import BaseModel
-from typing import List, Optional
 import uuid
 
+from pydantic import BaseModel
+
+
 class UserProfileBase(BaseModel):
-    name: Optional[str] = None
-    preferred_positions: List[str] = []
+    name: str | None = None
+    preferred_positions: list[str] = []
+
 
 class UserProfileUpdate(UserProfileBase):
     pass
 
+
 class UserProfile(UserProfileBase):
     id: uuid.UUID
     keycloak_id: str
-    email: Optional[str] = None
+    email: str | None = None
 
     class Config:
         from_attributes = True

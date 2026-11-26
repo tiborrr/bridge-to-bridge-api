@@ -1,11 +1,13 @@
-from pydantic import BaseModel
-from typing import List, Optional
 from datetime import datetime
+
+from pydantic import BaseModel
+
 
 class TeamInfo(BaseModel):
     id: str
     name: str
     boat_type: str
+
 
 class LeaderboardEntry(BaseModel):
     position: int
@@ -13,6 +15,7 @@ class LeaderboardEntry(BaseModel):
     wind_conditions: str
     weather_conditions: str
     time_str: str
+
 
 class LiveTelemetry(BaseModel):
     speed_kmh: float
@@ -24,6 +27,7 @@ class LiveTelemetry(BaseModel):
     opponent_progress_percent: int
     opponent: TeamInfo
 
+
 class HistorySession(BaseModel):
     id: str
     date: datetime
@@ -31,7 +35,8 @@ class HistorySession(BaseModel):
     time_str: str
     average_speed_kmh: float
     average_stroke_rate: int
-    
+
+
 class RaceSessionCreate(BaseModel):
     team_id: str
     trajectory_id: str
