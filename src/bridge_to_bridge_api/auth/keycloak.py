@@ -1,11 +1,13 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from keycloak import KeycloakOpenID, KeycloakAdmin
-from bridge_to_bridge_api.core.config import get_settings
-import jwt
 import logging
 
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from keycloak import KeycloakAdmin, KeycloakOpenID
+
+from bridge_to_bridge_api.core.config import get_settings
+
 logger = logging.getLogger(__name__)
+
 
 def get_keycloak_admin() -> KeycloakAdmin:
     """Admin client for the app realm.
@@ -37,21 +39,26 @@ def get_keycloak_admin() -> KeycloakAdmin:
         verify=True,
     )
 
+
 def get_keycloak_openid() -> KeycloakOpenID:
     settings = get_settings()
     return KeycloakOpenID(
         server_url=settings.KEYCLOAK_SERVER_URL,
         client_id=settings.KEYCLOAK_CLIENT_ID,
         realm_name=settings.KEYCLOAK_REALM,
-        client_secret_key=settings.KEYCLOAK_CLIENT_SECRET,
-        verify=True
+        verify=True,
     )
+
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=f"{get_settings().KEYCLOAK_SERVER_URL}/realms/{get_settings().KEYCLOAK_REALM}/protocol/openid-connect/token",
 )
 
-async def get_current_user(token: str = Depends(oauth2_scheme), keycloak_openid: KeycloakOpenID = Depends(get_keycloak_openid)):
+
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    keycloak_openid: KeycloakOpenID = Depends(get_keycloak_openid),
+):
     try:
         # Decode and verify token
         payload = keycloak_openid.decode_token(token)
@@ -62,4 +69,4 @@ async def get_current_user(token: str = Depends(oauth2_scheme), keycloak_openid:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Could not validate credentials: {e}",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from e

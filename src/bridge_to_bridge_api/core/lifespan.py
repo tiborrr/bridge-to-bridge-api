@@ -1,12 +1,14 @@
 import asyncio
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
-from fastapi import FastAPI
-from alembic.config import Config
-from alembic import command
 import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
+from alembic import command
+from alembic.config import Config
+from fastapi import FastAPI
 
 log = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -18,5 +20,5 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         log.error(f"Failed to run database migrations: {e}")
         raise
-    
+
     yield

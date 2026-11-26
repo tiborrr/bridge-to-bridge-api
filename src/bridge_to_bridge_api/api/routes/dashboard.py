@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends
-from bridge_to_bridge_api.schemas.rowing import LiveTelemetry, TeamInfo
+
 from bridge_to_bridge_api.auth.keycloak import get_current_user
+from bridge_to_bridge_api.schemas.rowing import LiveTelemetry, TeamInfo
 
 router = APIRouter()
+
 
 @router.get("/live", response_model=LiveTelemetry)
 async def get_live_dashboard(user: dict = Depends(get_current_user)):
@@ -12,8 +14,8 @@ async def get_live_dashboard(user: dict = Depends(get_current_user)):
         stroke_rate=32,
         heart_rate=164,
         distance_km=2.8,
-        time_lead_seconds=-4, # 4 seconds behind/ahead
+        time_lead_seconds=-4,  # 4 seconds behind/ahead
         user_progress_percent=78,
         opponent_progress_percent=72,
-        opponent=TeamInfo(id="freya", name="Team Freya", boat_type="Visbyvaarder")
+        opponent=TeamInfo(id="freya", name="Team Freya", boat_type="Visbyvaarder"),
     )
