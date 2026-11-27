@@ -1,0 +1,89 @@
+/*
+ * Brug tot Brug brand layer on top of keycloak.v2 (PatternFly 5).
+ * Colours follow the app (bridge-to-bridge-app lib/theme.dart):
+ * primary #021C4B, Oxford blue #1D3261, performance green #27AE60.
+ */
+:root {
+    --btb-primary: #021c4b;
+    --btb-oxford: #1d3261;
+    --btb-green: #27ae60;
+    --btb-green-dark: #1e8c4c;
+    --btb-silver: #d9dadb;
+
+    --keycloak-card-top-color: var(--btb-green);
+    --pf-v5-global--primary-color--100: var(--btb-oxford);
+    --pf-v5-global--primary-color--200: var(--btb-primary);
+    --pf-v5-global--link--Color: var(--btb-oxford);
+    --pf-v5-global--link--Color--hover: var(--btb-green-dark);
+    --pf-v5-c-button--m-primary--BackgroundColor: var(--btb-oxford);
+    --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--btb-primary);
+    --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--btb-primary);
+    --pf-v5-c-button--m-primary--active--BackgroundColor: var(--btb-primary);
+}
+
+/* Navy backdrop with a hint of the river instead of the Keycloak artwork. */
+.login-pf body {
+    background:
+        radial-gradient(ellipse at 50% 120%, rgba(39, 174, 96, 0.28) 0%, rgba(39, 174, 96, 0) 55%),
+        linear-gradient(160deg, var(--btb-oxford) 0%, var(--btb-primary) 70%);
+    background-attachment: fixed;
+    min-height: 100%;
+}
+
+/* Header: app logo, name and tagline. */
+#kc-header-wrapper {
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.btb-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.btb-logo {
+    width: 88px;
+    height: 88px;
+    background: url("../img/brug-tot-brug-logo.png") no-repeat center / contain;
+    border-radius: 20%;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35), 0 6px 24px rgba(0, 0, 0, 0.35);
+    margin-bottom: 8px;
+}
+
+.btb-name {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #ffffff;
+}
+
+.btb-tagline {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--btb-green);
+}
+
+/* Card */
+.pf-v5-c-login__main {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.pf-v5-c-login__main-header {
+    border-top-width: 6px;
+}
+
+#kc-page-title {
+    color: var(--btb-primary);
+}
+
+.pf-v5-c-button.pf-m-primary {
+    border-radius: 6px;
+    font-weight: 600;
+}

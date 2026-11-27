@@ -84,3 +84,17 @@ the admin API audience it adds), set by
 `KEYCLOAK_API_ADMIN_CLIENT_SECRET`. It does not hold the master admin password. It reaches
 Keycloak over the internal network (`http://bridge-keycloak:8080`), so the proxy rules
 above do not affect it.
+
+## Login themes
+
+The Keycloak image ships two login themes in `keycloak/themes/`. Both extend the stock
+`keycloak.v2` theme with CSS, images and messages only (no template overrides), so Keycloak
+upgrades need no theme work. Themes are read at runtime, so `start --optimized` needs no
+extra build step.
+
+- `brug-tot-brug`: the app realm (`bridge-realm`), in the app's colours and logo. Set by
+  `loginTheme` in the realm files, so new installs get it on import.
+- `brug-tot-brug-admin`: the master realm (admin console). Same brand plus a red
+  "PRODUCTION" ribbon and badge, so it cannot be mistaken for the other Keycloaks on the
+  host. The master realm is not imported, so set it once per install (Realm settings →
+  Themes → Login theme, or `kcadm.sh update realms/master -s loginTheme=brug-tot-brug-admin`).
