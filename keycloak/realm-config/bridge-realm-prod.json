@@ -1,6 +1,7 @@
 {
   "id": "${KEYCLOAK_APP_REALM:bridge-realm}",
   "realm": "${KEYCLOAK_APP_REALM:bridge-realm}",
+  "loginTheme": "brug-tot-brug",
   "enabled": true,
   "sslRequired": "external",
   "bruteForceProtected": true,

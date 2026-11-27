@@ -1,0 +1,55 @@
+/*
+ * Admin (master realm) variant: a red production ribbon across the top of
+ * the page and a red card edge, on top of the Brug tot Brug brand.
+ */
+:root {
+    --btb-prod: #d0021b;
+    --keycloak-card-top-color: var(--btb-prod);
+}
+
+.login-pf body {
+    padding-top: 44px;
+}
+
+.login-pf body::before {
+    content: "PRODUCTION \2014  Brug tot Brug Keycloak admin \2014  omarchy";
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 1000;
+    height: 44px;
+    line-height: 44px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: #ffffff;
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--btb-prod) 0 22px,
+        #a80016 22px 44px
+    );
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.btb-env {
+    margin-top: 6px;
+    padding: 4px 14px;
+    border-radius: 999px;
+    background: var(--btb-prod);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+@media (max-width: 600px) {
+    .login-pf body::before {
+        content: "PRODUCTION \2014  Brug tot Brug admin";
+        letter-spacing: 1px;
+        font-size: 13px;
+    }
+}
